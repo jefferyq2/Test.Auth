@@ -37,8 +37,10 @@ namespace Test.Auth.Client.Cli
             };
             using var http = new HttpClient(handler, disposeHandler: false);
 
-            var baseUri = new Uri(Configuration["BaseUrl"]);
-            var url = new Uri(baseUri, "/api/who");
+            var baseUrl = Configuration["BaseUrl"];
+            var url = Flurl.Url.Combine(baseUrl, "api/who");
+
+            Console.WriteLine($"Url: {url}");
             var resp = await http.GetStringAsync(url);
             Console.WriteLine(resp);
         }
