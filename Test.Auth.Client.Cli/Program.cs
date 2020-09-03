@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -33,8 +34,14 @@ namespace Test.Auth.Client.Cli
             using var handler = new HttpClientHandler
             {
                 ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
-                UseDefaultCredentials = Configuration.GetValue<bool>(nameof(HttpClientHandler.UseDefaultCredentials)),
             };
+
+            handler.UseDefaultCredentials = Configuration.GetValue<bool>(nameof(HttpClientHandler.UseDefaultCredentials));
+            if (Configuration.GetValue<bool>("Set" + nameof(CredentialCache.DefaultCredentials)))
+                handler.Credentials = CredentialCache.DefaultCredentials;
+            else if (Configuration.GetValue<bool>("Set" + nameof(CredentialCache.DefaultNetworkCredentials)))
+                handler.Credentials = CredentialCache.DefaultNetworkCredentials;
+
             using var http = new HttpClient(handler, disposeHandler: false);
 
             var baseUrl = Configuration["BaseUrl"];
