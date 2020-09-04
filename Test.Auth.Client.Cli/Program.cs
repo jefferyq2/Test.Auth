@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -38,9 +40,26 @@ namespace Test.Auth.Client.Cli
 
             handler.UseDefaultCredentials = Configuration.GetValue<bool>(nameof(HttpClientHandler.UseDefaultCredentials));
             if (Configuration.GetValue<bool>("Set" + nameof(CredentialCache.DefaultCredentials)))
+            {
                 handler.Credentials = CredentialCache.DefaultCredentials;
+            }
             else if (Configuration.GetValue<bool>("Set" + nameof(CredentialCache.DefaultNetworkCredentials)))
+            {
                 handler.Credentials = CredentialCache.DefaultNetworkCredentials;
+            }
+            else if (Configuration.GetSection(nameof(CredentialCache))?.Get<CredentialEntry[]>() is CredentialEntry[] creds)
+            {
+                var cache = new CredentialCache();
+                foreach (var c in creds)
+                {
+                    var cred = c.UseDefaultNetworkCredentials
+                        ? CredentialCache.DefaultNetworkCredentials
+                        : c.Credential;
+                    cache.Add(new Uri(c.Url), c.AuthType, cred);
+                }
+                handler.Credentials = new MyCredentialCache { Cache = cache };
+                Console.WriteLine($"Build CredCache with {creds.Length} entries");
+            }
 
             using var http = new HttpClient(handler, disposeHandler: false);
 
@@ -50,6 +69,32 @@ namespace Test.Auth.Client.Cli
             Console.WriteLine($"Url: {url}");
             var resp = await http.GetStringAsync(url);
             Console.WriteLine(resp);
+        }
+    }
+
+    public class CredentialEntry
+    {
+        public string Url { get; set; }
+
+        public string AuthType { get; set; }
+
+        public NetworkCredential Credential { get; set; }
+
+        public bool UseDefaultNetworkCredentials { get; set; }
+    }
+
+    public class MyCredentialCache : ICredentials
+    {
+        public CredentialCache Cache { get; set; }
+
+        public NetworkCredential GetCredential(Uri uri, string authType)
+        {
+            Console.WriteLine($"Get credential for [{uri}][{authType}]");
+            var c = Cache?.GetCredential(uri, authType);
+            Console.WriteLine(c == null
+                ? "Got no cred"
+                : $"Got [{c?.UserName}]@[{c?.Domain}]");
+            return c;
         }
     }
 }
